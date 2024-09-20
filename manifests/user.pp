@@ -74,9 +74,22 @@ define ipmi::user (
       /usr/bin/ipmitool user test ${user_id} 16 "\$PASSWORD" || \
       /usr/bin/ipmitool user test ${user_id} 20 "\$PASSWORD"
       |- CMD
+
+    # Password capacity parameter defaults to 16 if not provided
+    #  and will result in truncated passwords
+    if $real_password.length <= 16 {
+      $password_capacity = '16'
+    }
+    if $real_password.length > 16 and $real_password.length <= 20 {
+      $password_capacity = '20'
+    }
+    if $real_password.length > 20 {
+      fail('ipmi v2 restricts passwords 20 or fewer characters')
+    }
+
     exec { "ipmi_user_setpw_${title}":
       environment => ["PASSWORD=${real_password}"],
-      command     => "/usr/bin/ipmitool user set password ${user_id} \"\$PASSWORD\"",
+      command     => "/usr/bin/ipmitool user set password ${user_id} \"\$PASSWORD\" ${password_capacity}",
       unless      => $unless_cmd,
       notify      => Exec[
         "ipmi_user_enable_${title}",
